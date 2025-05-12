@@ -114,14 +114,19 @@ function install_and_deploy_node() {
     # 编译Nockchain
     make build-hoon-all
     if [ $? -eq 0 ]; then
-        echo "成功编译 Nockchain ( Stuartartsbuild-hoon-all
-        make build
-        if [ $? -eq 0 ]; then
-            echo "成功编译 Nockchain (build)"
-        else
-            echo "编译 Nockchain (build) 失败，请检查上面的输出以获取错误信息。"
-            exit 1
-        fi
+        echo "成功编译 Nockchain (build-hoon-all)"
+    else
+        echo "编译 Nockchain (build-hoon-all) 失败，请检查上面的输出以获取错误信息。"
+        exit 1
+    fi
+
+    make build
+    if [ $? -eq 0 ]; then
+        echo "成功编译 Nockchain (build)"
+    else
+        echo "编译 Nockchain (build) 失败，请检查上面的输出以获取错误信息。"
+        exit 1
+    fi
 
     # 将编译后的二进制路径添加到 PATH
     export PATH="$PATH:$(pwd)/target/release"
