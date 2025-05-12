@@ -37,19 +37,23 @@ function main_menu() {
 
 # 安装和部署节点函数
 function install_and_deploy_node() {
+    # 设置非交互模式，保持现有配置文件
+    export DEBIAN_FRONTEND=noninteractive
+    APT_OPTIONS="-o Dpkg::Options::=--force-confold -o Dpkg::Options::=--force-confdef -y"
+
     # 检查是否安装 Docker
     if ! command -v docker >/dev/null 2>&1; then
         echo "未检测到 Docker，正在安装 Docker..."
         # 更新包索引并安装依赖
-        sudo apt update
-        sudo apt install -y apt-transport-https ca-certificates curl software-properties-common
+        sudo apt update $APT_OPTIONS
+        sudo apt install $APT_OPTIONS apt-transport-https ca-certificates curl software-properties-common
         # 添加 Docker 的 GPG 密钥
         curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
         # 添加 Docker 仓库
         sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
         # 更新包索引并安装 Docker
-        sudo apt update
-        sudo apt install -y docker-ce docker-ce-cli containerd.io
+        sudo apt update $APT_OPTIONS
+        sudo apt install $APT_OPTIONS docker-ce docker-ce-cli containerd.io
         # 将当前用户添加到 docker 组以避免每次使用 docker 时需要 sudo
         sudo usermod -aG docker "$USER"
         # 启用 Docker 服务并重启
@@ -61,10 +65,10 @@ function install_and_deploy_node() {
     fi
 
     # 更新系统并升级软件包
-    sudo apt update && sudo apt upgrade -y
+    sudo apt update $APT_OPTIONS && sudo apt upgrade $APT_OPTIONS
 
     # 安装依赖，包括git、net-tools（用于端口检测）和screen
-    sudo apt install -y curl build-essential git net-tools screen
+    sudo apt install $APT_OPTIONS curl build-essential git net-tools screen
 
     # 安装Rust环境（使用 -y 参数自动接受默认安装）
     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
