@@ -256,7 +256,7 @@ function install_nock() {
     echo "Follower 端口：$FOLLOWER_PORT"
     echo "BTC 主网 RPC 调用结果已保存到 btc_index_info.json"
     echo "Nockchain 节点运行在 screen 会话 'miner' 中，日志在 miner.log，可使用 'screen -r miner' 查看。"
-    echo "请妥善保存 wallet_keys.txt 中的密钥信息！"
+    echo "请妥善保存密钥信息！"
     echo "按 Enter 键返回主菜单..."
     read -r
 }
