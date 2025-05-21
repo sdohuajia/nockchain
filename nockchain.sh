@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # 脚本保存路径
-SCRIPT_PATH="$HOME/nockchain.sh"
+SCRIPT_PATH="$HOME/nock.sh"
 
 # 确保以 root 权限运行
 if [ "$EUID" -ne 0 ]; then
@@ -19,221 +19,287 @@ function main_menu() {
         echo "================================================================"
         echo "退出脚本，请按键盘 Ctrl + C"
         echo "请选择要执行的操作:"
-        echo "1. 安装部署节点"
-        echo "================================================================"
-        read -p "请输入选项 (1): " choice
-
+        echo "1. 安装部署nock"
+        echo "2. 备份密钥"
+        echo "请输入选项 (1-2):"
+        read -r choice
         case $choice in
             1)
-                install_and_deploy_node
+                install_nock
+                ;;
+            2)
+                backup_keys
                 ;;
             *)
-                echo "无效选项，请输入 1"
+                echo "无效选项，请输入 1 或 2"
                 sleep 2
                 ;;
         esac
     done
 }
 
-# 安装和部署节点函数
-function install_and_deploy_node() {
-    # 设置非交互模式，保持现有配置文件
-    export DEBIAN_FRONTEND=noninteractive
-    APT_OPTIONS="-o Dpkg::Options::=--force-confold -o Dpkg::Options::=--force-confdef -y"
-
-    # 检查是否安装 Docker
-    if ! command -v docker >/dev/null 2>&1; then
-        echo "未检测到 Docker，正在安装 Docker..."
-        # 更新包索引并安装依赖
-        sudo apt update $APT_OPTIONS
-        sudo apt install $APT_OPTIONS apt-transport-https ca-certificates curl software-properties-common
-        # 添加 Docker 的 GPG 密钥
-        curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
-        # 添加 Docker 仓库
-        sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
-        # 更新包索引并安装 Docker
-        sudo apt update $APT_OPTIONS
-        sudo apt install $APT_OPTIONS docker-ce docker-ce-cli containerd.io
-        # 将当前用户添加到 docker 组以避免每次使用 docker 时需要 sudo
-        sudo usermod -aG docker "$USER"
-        # 启用 Docker 服务并重启
-        sudo systemctl enable docker
-        sudo systemctl restart docker
-        echo "Docker 安装成功。版本：$(docker --version)"
-    else
-        echo "Docker 已安装。版本：$(docker --version)"
-    fi
+# 安装部署nock 函数
+function install_nock() {
+    # 设置错误处理：任何命令失败时退出
+    set -e
 
     # 更新系统并升级软件包
-    sudo apt update $APT_OPTIONS && sudo apt upgrade $APT_OPTIONS
+    echo "正在更新系统并升级软件包..."
+    apt-get update && apt-get upgrade -y
 
-    # 安装依赖，包括git、net-tools（用于端口检测）和screen
-    sudo apt install $APT_OPTIONS curl build-essential git net-tools screen
+    # 安装必要的软件包（包括 screen）
+    echo "正在安装必要的软件包..."
+    apt install curl iptables build-essential git wget lz4 jq make gcc nano automake autoconf tmux htop nvme-cli libgbm1 pkg-config libssl-dev libleveldb-dev tar clang bsdmainutils ncdu unzip libleveldb-dev screen -y
 
-    # 安装Rust环境（使用 -y 参数自动接受默认安装）
+    # 安装 Rust
+    echo "正在安装 Rust..."
     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 
-    # 配置环境变量
-    # 将Cargo的二进制路径添加到~/.bashrc或~/.zshrc
+    # 配置环境变量（Cargo 路径）
+    echo "正在配置 Cargo 环境变量..."
+    source $HOME/.cargo/env || { echo "错误：无法 source $HOME/.cargo/env，请检查 Rust 安装"; exit 1; }
+
+    # 克隆 nockchain 仓库并进入目录
+    echo "正在克隆 nockchain 仓库..."
+    if [ -d "nockchain" ]; then
+        echo "nockchain 目录已存在，跳过克隆。"
+        cd nockchain
+    else
+        git clone https://github.com/zorp-corp/nockchain
+        cd nockchain || { echo "无法进入 nockchain 目录，克隆可能失败"; exit 1; }
+    fi
+
+    # 执行 make install-hoonc
+    echo "正在执行 make install-hoonc..."
+    make install-hoonc || { echo "执行 make install-hoonc 失败，请检查 nockchain 仓库的 Makefile 或依赖"; exit 1; }
+
+    # 验证 hoonc 安装
+    echo "正在验证 hoonc 安装..."
+    if command -v hoonc >/dev/null 2>&1; then
+        echo "hoonc 安装成功，可用命令：hoonc"
+    else
+        echo "警告：hoonc 命令不可用，安装可能不完整。"
+    fi
+
+    # 安装节点二进制文件
+    echo "正在安装节点二进制文件..."
+    make build || { echo "执行 make build 失败，请检查 nockchain 仓库的 Makefile 或依赖"; exit 1; }
+
+    # 安装钱包二进制文件
+    echo "正在安装钱包二进制文件..."
+    make install-nockchain-wallet || { echo "执行 make install-nockchain-wallet 失败，请检查 nockchain 仓库的 Makefile 或依赖"; exit 1; }
+
+    # 安装 Nockchain
+    echo "正在安装 Nockchain..."
+    make install-nockchain || { echo "执行 make install-nockchain 失败，请检查 nockchain 仓库的 Makefile 或依赖"; exit 1; }
+
+    # 直接创建钱包
+    echo "构建完毕，正在自动创建钱包..."
+
+    # 持久化 nockchain 的 target/release 到 PATH
+    echo "正在将 $(pwd)/target/release 添加到 PATH..."
     if [ -f "$HOME/.bashrc" ]; then
-        echo 'export PATH="$HOME/.cargo/bin:$PATH"' >> "$HOME/.bashrc"
-        source "$HOME/.bashrc"
+        if ! grep -q "export PATH=\"\$PATH:$(pwd)/target/release\"" "$HOME/.bashrc"; then
+            echo "export PATH=\"\$PATH:$(pwd)/target/release\"" >> "$HOME/.bashrc"
+            source "$HOME/.bashrc"
+        fi
     elif [ -f "$HOME/.zshrc" ]; then
-        echo 'export PATH="$HOME/.cargo/bin:$PATH"' >> "$HOME/.zshrc"
-        source "$HOME/.zshrc"
+        if ! grep -q "export PATH=\"\$PATH:$(pwd)/target/release\"" "$HOME/.zshrc"; then
+            echo "export PATH=\"\$PATH:$(pwd)/target/release\"" >> "$HOME/.zshrc"
+            source "$HOME/.zshrc"
+        fi
     else
-        echo "未找到 ~/.bashrc 或 ~/.zshrc，请手动将以下内容添加到您的 shell 配置文件："
-        echo 'export PATH="$HOME/.cargo/bin:$PATH"'
+        echo "未找到 ~/.bashrc 或 ~/.zshrc，请手动添加：export PATH=\"\$PATH:$(pwd)/target/release\""
     fi
 
-    # 验证Rust安装
-    if command -v rustc >/dev/null 2>&1; then
-        echo "Rust 安装成功。版本：$(rustc --version)"
-    else
-        echo "Rust 安装失败，请检查上面的输出以获取错误信息。"
+    # 执行 nockchain-wallet keygen
+    echo "正在生成钱包密钥..."
+    if ! command -v nockchain-wallet >/dev/null 2>&1; then
+        echo "错误：nockchain-wallet 命令不可用，请检查 target/release 目录或构建过程。"
         exit 1
     fi
+    nockchain-wallet keygen > wallet_keys.txt || { echo "错误：nockchain-wallet keygen 执行失败"; exit 1; }
+    echo "钱包密钥已保存到 wallet_keys.txt，请妥善保管！"
 
-    # 克隆nockchain仓库
-    git clone https://github.com/zorp-corp/nockchain
-    if [ $? -eq 0 ]; then
-        echo "成功克隆 nockchain 仓库到 ./nockchain"
-    else
-        echo "克隆 nockchain 仓库失败，请检查网络或仓库地址。"
+    # 从 wallet_keys.txt 中提取 New Public Key
+    echo "正在从 wallet_keys.txt 中提取 New Public Key..."
+    public_key=$(grep -A 1 "New Public Key" wallet_keys.txt | tail -n 1 | tr -d '"')
+    if [ -z "$public_key" ]; then
+        echo "错误：无法从 wallet_keys.txt 中提取 New Public Key，请检查文件内容。"
         exit 1
     fi
+    echo "提取的 New Public Key：$public_key"
 
-    # 进入nockchain目录
-    cd nockchain || { echo "无法进入 nockchain 目录"; exit 1; }
-
-    # 编译Hoon
-    make install-choo
-    if [ $? -eq 0 ]; then
-        echo "成功编译 Hoon (install-choo)"
-    else
-        echo "编译 Hoon (install-choo) 失败，请检查上面的输出以获取错误信息。"
-        exit 1
-    fi
-
-    # 编译Nockchain
-    make build-hoon-all
-    if [ $? -eq 0 ]; then
-        echo "成功编译 Nockchain (build-hoon-all)"
-    else
-        echo "编译 Nockchain (build-hoon-all) 失败，请检查上面的输出以获取错误信息。"
-        exit 1
-    fi
-
-    make build
-    if [ $? -eq 0 ]; then
-        echo "成功编译 Nockchain (build)"
-    else
-        echo "编译 Nockchain (build) 失败，请检查上面的输出以获取错误信息。"
-        exit 1
-    fi
-
-    # 将编译后的二进制路径添加到 PATH
-    export PATH="$PATH:$(pwd)/target/release"
-    echo "已将 $(pwd)/target/release 添加到 PATH"
-
-    # 创建钱包并捕获公钥
-    echo "正在创建钱包..."
-    PUBLIC_KEY=$(wallet keygen 2>/dev/null)
-    if [ $? -eq 0 ] && [ -n "$PUBLIC_KEY" ]; then
-        echo "成功创建钱包，公钥：$PUBLIC_KEY"
-    else
-        echo "创建钱包失败 (wallet keygen)，请检查上面的输出以获取错误信息。"
-        exit 1
-    fi
-
-    # 替换 Makefile 中的 export MINING_PUBKEY
-    MAKEFILE="Makefile"
-    if [ -f "$MAKEFILE" ]; then
-        sed -i "s/export MINING_PUBKEY := .*/export MINING_PUBKEY := $PUBLIC_KEY/" "$MAKEFILE"
-        if [ $? -eq 0 ]; then
-            echo "成功替换 $MAKEFILE 中的 MINING_PUBKEY 为 $PUBLIC_KEY"
-        else
-            echo "替换 $MAKEFILE 中的 MINING_PUBKEY 失败，请检查文件内容或权限。"
+    # 检查端口 3005 和 3006 是否被占用
+    echo "正在检查端口 3005 和 3006 是否被占用..."
+    LEADER_PORT=3005
+    FOLLOWER_PORT=3006
+    if command -v ss >/dev/null 2>&1; then
+        if ss -tuln | grep -q ":$LEADER_PORT "; then
+            echo "错误：端口 $LEADER_PORT 已被占用，请释放该端口或选择其他端口后重试。"
+            exit 1
+        fi
+        if ss -tuln | grep -q ":$FOLLOWER_PORT "; then
+            echo "错误：端口 $FOLLOWER_PORT 已被占用，请释放该端口或选择其他端口后重试。"
+            exit 1
+        fi
+    elif command -v netstat >/dev/null 2>&1; then
+        if netstat -tuln | grep -q ":$LEADER_PORT "; then
+            echo "错误：端口 $LEADER_PORT 已被占用，请释放该端口或选择其他端口后重试。"
+            exit 1
+        fi
+        if netstat -tuln | grep -q ":$FOLLOWER_PORT "; then
+            echo "错误：端口 $FOLLOWER_PORT 已被占用，请释放该端口或选择其他端口后重试。"
             exit 1
         fi
     else
-        echo "未找到 $MAKEFILE 文件，请确认包含 'export MINING_PUBKEY' 的文件路径。"
+        echo "错误：未找到 ss 或 netstat 命令，无法检查端口占用。"
+        exit 1
+    fi
+    echo "端口 $LEADER_PORT 和 $FOLLOWER_PORT 未被占用，可继续执行。"
+
+    # 复制 .env_example 到 .env
+    echo "正在复制 .env_example 到 .env..."
+    if [ -f ".env" ]; then
+        cp .env .env.bak
+        echo ".env 已备份为 .env.bak"
+    fi
+    if [ ! -f ".env_example" ]; then
+        echo "错误：.env_example 文件不存在，请检查 nockchain 仓库。"
+        exit 1
+    fi
+    cp .env_example .env || { echo "错误：无法复制 .env_example 到 .env"; exit 1; }
+
+    # 更新 .env 文件中的 MINING_PUBKEY
+    echo "正在更新 .env 文件中的 MINING_PUBKEY..."
+    if ! grep -q "^MINING_PUBKEY=" .env; then
+        echo "MINING_PUBKEY=$public_key" >> .env
+    else
+        sed -i "s|^MINING_PUBKEY=.*|MINING_PUBKEY=$public_key|" .env || {
+            echo "错误：无法更新 .env 文件中的 MINING_PUBKEY。"
+            exit 1
+        }
+    fi
+
+    # 将端口写入 .env
+    echo "正在将端口写入 .env..."
+    if ! grep -q "^LEADER_PORT=" .env; then
+        echo "LEADER_PORT=$LEADER_PORT" >> .env
+    else
+        sed -i "s|^LEADER_PORT=.*|LEADER_PORT=$LEADER_PORT|" .env
+    fi
+    if ! grep -q "^FOLLOWER_PORT=" .env; then
+        echo "FOLLOWER_PORT=$FOLLOWER_PORT" >> .env
+    else
+        sed -i "s|^FOLLOWER_PORT=.*|FOLLOWER_PORT=$FOLLOWER_PORT|" .env
+    fi
+
+    # 验证 .env 更新
+    if grep -q "^MINING_PUBKEY=$public_key$" .env && \
+       grep -q "^LEADER_PORT=$LEADER_PORT$" .env && \
+       grep -q "^FOLLOWER_PORT=$FOLLOWER_PORT$" .env; then
+        echo ".env 文件更新成功！"
+    else
+        echo "错误：.env 文件更新失败，请检查文件内容。"
         exit 1
     fi
 
-    # 检测端口 3005 和 3006 是否被占用，并选择可用端口
-    LEADER_PORT=3005
-    FOLLOWER_PORT=3006
-    MAX_PORT=65535
-
-    # 函数：检查端口是否被占用并返回可用端口
-    find_available_port() {
-        local port=$1
-        while ss -tuln | grep -q ":$port "; do
-            echo "端口 $port 已被占用，尝试下一个端口..."
-            port=$((port + 1))
-            if [ $port -gt $MAX_PORT ]; then
-                echo "错误：无法找到可用端口（已达到 $MAX_PORT）。"
-                exit 1
-            fi
-        done
-        echo $port
-    }
-
-    # 检查并分配 leader 和 follower 端口
-    LEADER_PORT=$(find_available_port $LEADER_PORT)
-    echo "为 Leader 分配端口：$LEADER_PORT"
-    FOLLOWER_PORT=$(find_available_port $FOLLOWER_PORT)
-    echo "为 Follower 分配端口：$FOLLOWER_PORT"
-
-    # 确保 leader 和 follower 端口不相同
-    if [ $LEADER_PORT -eq $FOLLOWER_PORT ]; then
-        FOLLOWER_PORT=$(find_available_port $((FOLLOWER_PORT + 1)))
-        echo "Leader 和 Follower 端口冲突，已为 Follower 重新分配端口：$FOLLOWER_PORT"
+    # 验证 Makefile 中的运行目标
+    echo "正在验证 Makefile 中的运行目标..."
+    if [ ! -f "Makefile" ]; then
+        echo "错误：Makefile 不存在，请检查 nockchain 仓库。"
+        exit 1
+    fi
+    if ! grep -q "^run-nockchain:" Makefile; then
+        echo "错误：Makefile 缺少 run-nockchain 目标。"
+        exit 1
     fi
 
-    # 更新 Makefile 中的端口（假设 Makefile 中有 LEADER_PORT 和 FOLLOWER_PORT 变量）
-    if [ -f "$MAKEFILE" ]; then
-        # 添加或更新 LEADER_PORT 和 FOLLOWER_PORT
-        if grep -q "export LEADER_PORT :=" "$MAKEFILE"; then
-            sed -i "s/export LEADER_PORT := .*/export LEADER_PORT := $LEADER_PORT/" "$MAKEFILE"
-        else
-            echo "export LEADER_PORT := $LEADER_PORT" >> "$MAKEFILE"
-        fi
-        if grep -q "export FOLLOWER_PORT :=" "$MAKEFILE"; then
-            sed -i "s/export FOLLOWER_PORT := .*/export FOLLOWER_PORT := $FOLLOWER_PORT/" "$MAKEFILE"
-        else
-            echo "export FOLLOWER_PORT := $FOLLOWER_PORT" >> "$MAKEFILE"
-        fi
-        echo "已更新 $MAKEFILE 中的 LEADER_PORT 为 $LEADER_PORT 和 FOLLOWER_PORT 为 $FOLLOWER_PORT"
-    else
-        echo "警告：未找到 $MAKEFILE，端口未更新。请手动在 make 命令中指定端口：Leader ($LEADER_PORT), Follower ($FOLLOWER_PORT)"
+    # 提示用户输入 BTC 主网 RPC token
+    echo "请输入您的 BTC 主网 RPC token："
+    read -r rpc_token
+    if [ -z "$rpc_token" ]; then
+        echo "错误：未提供 RPC token，请重新运行脚本并输入有效的 token。"
+        exit 1
     fi
 
-    # 在 screen 会话中运行 nockchain leader
-    echo "在 screen 会话 'leader' 中启动 nockchain Leader..."
-    screen -dmS leader bash -c "cd $(pwd) && make run-nockchain-leader"
+    # 执行 curl 调用 BTC 主网 RPC
+    echo "正在调用 BTC 主网 RPC 获取索引信息..."
+    curl -X POST "https://rpc.ankr.com/btc/$rpc_token" \
+         -d '{ "id": "hmm", "method": "getindexinfo", "params": [] }' > btc_index_info.json 2>&1
     if [ $? -eq 0 ]; then
-        echo "成功在 screen 'leader' 中启动 make run-nockchain-leader"
+        echo "成功调用 BTC 主网 RPC，结果已保存到 btc_index_info.json"
     else
-        echo "启动 screen 'leader' 失败，请检查错误信息。"
+        echo "错误：BTC 主网 RPC 调用失败，请检查 token 或网络连接。"
         exit 1
     fi
 
-    # 在 screen 会话中运行 nockchain follower
-    echo "在 screen 会话 'follower' 中启动 nockchain Follower..."
-    screen -dmS follower bash -c "cd $(pwd) && make run-nockchain-follower"
+    # 清理现有的 miner screen 会话（避免冲突）
+    echo "正在清理现有的 miner screen 会话..."
+    screen -ls | grep -q "miner" && screen -X -S miner quit
+
+    # 启动 screen 会话运行 make run-nockchain
+    echo "正在启动 screen 会话 'miner' 并运行 make run-nockchain..."
+    screen -dmS miner bash -c "make run-nockchain > miner.log 2>&1 || echo 'make run-nockchain 失败' >> miner_error.log; exec bash"
     if [ $? -eq 0 ]; then
-        echo "成功在 screen 'follower' 中启动 make run-nockchain-follower"
+        echo "screen 会话 'miner' 已启动，日志输出到 miner.log，可使用 'screen -r miner' 查看。"
     else
-        echo "启动 screen 'follower' 失败，请检查错误信息。"
+        echo "错误：无法启动 screen 会话 'miner'。"
         exit 1
     fi
 
-    echo "节点安装和部署完成！"
-    echo "可以使用 'screen -r leader' 或 'screen -r follower' 查看运行状态。"
-    read -p "按 Enter 键返回主菜单..."
+    # 最终成功信息
+    echo "所有步骤已成功完成！"
+    echo "当前目录：$(pwd)"
+    echo "MINING_PUBKEY 已设置为：$public_key"
+    echo "Leader 端口：$LEADER_PORT"
+    echo "Follower 端口：$FOLLOWER_PORT"
+    echo "BTC 主网 RPC 调用结果已保存到 btc_index_info.json"
+    echo "Nockchain 节点运行在 screen 会话 'miner' 中，日志在 miner.log，可使用 'screen -r miner' 查看。"
+    echo "请妥善保存 wallet_keys.txt 中的密钥信息！"
+    echo "按 Enter 键返回主菜单..."
+    read -r
 }
+
+# 备份密钥函数
+function backup_keys() {
+    # 检查 nockchain-wallet 是否可用
+    if ! command -v nockchain-wallet >/dev/null 2>&1; then
+        echo "错误：nockchain-wallet 命令不可用，请先运行选项 1 安装部署nock。"
+        echo "按 Enter 键返回主菜单..."
+        read -r
+        return
+    fi
+
+    # 检查 nockchain 目录是否存在
+    if [ ! -d "nockchain" ]; then
+        echo "错误：nockchain 目录不存在，请先运行选项 1 安装部署nock。"
+        echo "按 Enter 键返回主菜单..."
+        read -r
+        return
+    fi
+
+    # 进入 nockchain 目录
+    cd nockchain || { echo "错误：无法进入 nockchain 目录"; exit 1; }
+
+    # 执行 nockchain-wallet export-keys
+    echo "正在备份密钥..."
+    nockchain-wallet export-keys > nockchain_keys_backup.txt 2>&1
+    if [ $? -eq 0 ]; then
+        echo "密钥备份成功！已保存到 $(pwd)/nockchain_keys_backup.txt"
+        echo "请妥善保管该文件，切勿泄露！"
+    else
+        echo "错误：密钥备份失败，请检查 nockchain-wallet export-keys 命令输出。"
+        echo "详细信息见 $(pwd)/nockchain_keys_backup.txt"
+    fi
+
+    echo "按 Enter 键返回主菜单..."
+    read -r
+}
+
+# 保存脚本到指定路径
+echo "正在保存脚本到 $SCRIPT_PATH..."
+cp "$0" "$SCRIPT_PATH" && chmod +x "$SCRIPT_PATH" || { echo "错误：无法保存脚本到 $SCRIPT_PATH"; exit 1; }
 
 # 启动主菜单
 main_menu
