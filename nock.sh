@@ -95,13 +95,8 @@ function install_nock() {
         echo "已跳过钱包创建。"
     else
         echo "正在自动创建钱包..."
-        # 执行 nockchain-wallet keygen
-        if ! command -v nockchain-wallet >/dev/null 2>&1; then
-            echo "错误：nockchain-wallet 命令不可用，请检查 target/release 目录或构建过程。"
-            exit 1
-        fi
-        nockchain-wallet keygen > wallet_keys.txt || { echo "错误：nockchain-wallet keygen 执行失败"; exit 1; }
-        echo "钱包密钥请妥善保管！"
+        # 直接执行 nockchain-wallet keygen
+        nockchain-wallet keygen
     fi
 
     # 持久化 nockchain 的 target/release 到 PATH
@@ -217,7 +212,7 @@ function install_nock() {
     echo "BTC 主网 RPC 调用结果已保存到 btc_index_info.json"
     echo "Nockchain 节点运行在 screen 会话 'miner' 中，日志在 miner.log，可使用 'screen -r miner' 查看。"
     if [[ "$create_wallet" =~ ^[Yy]$ ]]; then
-        echo "请妥善保存 wallet_keys.txt 中的密钥信息！"
+        echo "钱包密钥已生成，请妥善保存！"
     fi
     echo "按 Enter 键返回主菜单..."
     read -r
