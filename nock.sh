@@ -101,7 +101,7 @@ function install_nock() {
             exit 1
         fi
         nockchain-wallet keygen > wallet_keys.txt || { echo "错误：nockchain-wallet keygen 执行失败"; exit 1; }
-        echo "钱包密钥已保存到 wallet_keys.txt，请妥善保管！"
+        echo "钱包密钥请妥善保管！"
     fi
 
     # 持久化 nockchain 的 target/release 到 PATH
