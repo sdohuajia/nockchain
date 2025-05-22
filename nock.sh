@@ -136,7 +136,7 @@ function install_nock() {
     cp .env_example .env || { echo "错误：无法复制 .env_example 到 .env"; exit 1; }
 
     # 提示用户输入 MINING_PUBKEY 用于 .env
-    echo "请输入您的 MINING_PUBKEY（用于 .env 文件）："
+    echo "请输入您的 MINING_PUBKEY（用于 .env 文件和运行 nockchain）："
     read -r public_key
     if [ -z "$public_key" ]; then
         echo "错误：未提供 MINING_PUBKEY，请重新运行脚本并输入有效的公钥。"
@@ -197,14 +197,6 @@ function install_nock() {
         exit 1
     fi
 
-    # 提示用户输入 mining pubkey 用于运行 nockchain
-    echo "请输入用于运行 nockchain 的 mining pubkey："
-    read -r mining_pubkey
-    if [ -z "$mining_pubkey" ]; then
-        echo "错误：未提供 mining pubkey，请重新运行脚本并输入有效的公钥。"
-        exit 1
-    fi
-
     # 提示用户输入 BTC 主网 RPC token
     echo "请输入您的 BTC 主网 RPC token："
     read -r rpc_token
@@ -228,9 +220,9 @@ function install_nock() {
     echo "正在清理现有的 miner screen 会话..."
     screen -ls | grep -q "miner" && screen -X -S miner quit
 
-    # 启动 screen 会话运行 nockchain --mining_pubkey <your_pubkey> --mine
+    # 启动 screen 会话运行 nockchain --mining_pubkey <public_key> --mine
     echo "正在启动 screen 会话 'miner' 并运行 nockchain..."
-    screen -dmS miner bash -c "nockchain --mining_pubkey \"$mining_pubkey\" --mine > miner.log 2>&1 || echo 'nockchain 运行失败' >> miner_error.log; exec bash"
+    screen -dmS miner bash -c "nockchain --mining_pubkey \"$public_key\" --mine > miner.log 2>&1 || echo 'nockchain 运行失败' >> miner_error.log; exec bash"
     if [ $? -eq 0 ]; then
         echo "screen 会话 'miner' 已启动，日志输出到 miner.log，可使用 'screen -r miner' 查看。"
     else
@@ -241,8 +233,7 @@ function install_nock() {
     # 最终成功信息
     echo "所有步骤已成功完成！"
     echo "当前目录：$(pwd)"
-    echo "MINING_PUBKEY（.env）已设置为：$public_key"
-    echo "Mining Pubkey（运行）已设置为：$mining_pubkey"
+    echo "MINING_PUBKEY 已设置为：$public_key"
     echo "Leader 端口：$LEADER_PORT"
     echo "Follower 端口：$FOLLOWER_PORT"
     echo "BTC 主网 RPC 调用结果已保存到 btc_index_info.json"
