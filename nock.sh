@@ -200,9 +200,9 @@ function install_nock() {
     echo "正在清理现有的 miner screen 会话..."
     screen -ls | grep -q "miner" && screen -X -S miner quit
 
-    # 启动 screen 会话运行 nockchain --mining-pubkey <public_key> --mine
+    # 启动 screen 会话运行 nockchain
     echo "正在启动 screen 会话 'miner' 并运行 nockchain..."
-    screen -dmS miner bash -c "nockchain --mining-pubkey \"$public_key\" --mine > miner.log 2>&1 || echo 'nockchain 运行失败' >> miner_error.log; exec bash"
+    screen -dmS miner bash -c "nockchain --mining-pubkey \"$public_key\" --mine --peer /ip4/95.216.102.60/udp/3006/quic-v1 --peer /ip4/65.108.123.225/udp/3006/quic-v1 --peer /ip4/65.109.156.108/udp/3006/quic-v1 --peer /ip4/65.21.67.175/udp/3006/quic-v1 --peer /ip4/65.109.156.172/udp/3006/quic-v1 --peer /ip4/34.174.22.166/udp/3006/quic-v1 --peer /ip4/34.95.155.151/udp/30000/quic-v1 --peer /ip4/34.18.98.38/udp/30000/quic-v1 > miner.log 2>&1 || echo 'nockchain 运行失败' >> miner_error.log; exec bash"
     if [ $? -eq 0 ]; then
         echo "screen 会话 'miner' 已启动，日志输出到 miner.log，可使用 'screen -r miner' 查看。"
         # 等待片刻以确保日志写入
@@ -329,9 +329,9 @@ function restart_mining() {
     echo "正在清理现有的 miner screen 会话..."
     screen -ls | grep -q "miner" && screen -X -S miner quit
 
-    # 启动 screen 会话运行 nockchain --mining-pubkey <public_key> --mine
+    # 启动 screen 会话运行 nockchain
     echo "正在启动 screen 会话 'miner' 并运行 nockchain..."
-    screen -dmS miner bash -c "nockchain --mining-pubkey \"$public_key\" --mine > miner.log 2>&1 || echo 'nockchain 运行失败' >> miner_error.log; exec bash"
+    screen -dmS miner bash -c "nockchain --mining-pubkey \"$public_key\" --mine --peer /ip4/95.216.102.60/udp/3006/quic-v1 --peer /ip4/65.108.123.225/udp/3006/quic-v1 --peer /ip4/65.109.156.108/udp/3006/quic-v1 --peer /ip4/65.21.67.175/udp/3006/quic-v1 --peer /ip4/65.109.156.172/udp/3006/quic-v1 --peer /ip4/34.174.22.166/udp/3006/quic-v1 --peer /ip4/34.95.155.151/udp/30000/quic-v1 --peer /ip4/34.18.98.38/udp/30000/quic-v1 > miner.log 2>&1 || echo 'nockchain 运行失败' >> miner_error.log; exec bash"
     if [ $? -eq 0 ]; then
         echo "screen 会话 'miner' 已启动，日志输出到 miner.log，可使用 'screen -r miner' 查看。"
         # 等待片刻以确保日志写入
