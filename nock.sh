@@ -209,7 +209,6 @@ function install_nock() {
     echo "MINING_PUBKEY 已设置为：$public_key"
     echo "Leader 端口：$LEADER_PORT"
     echo "Follower 端口：$FOLLOWER_PORT"
-    echo "BTC 主网 RPC 调用结果已保存到 btc_index_info.json"
     echo "Nockchain 节点运行在 screen 会话 'miner' 中，日志在 miner.log，可使用 'screen -r miner' 查看。"
     if [[ "$create_wallet" =~ ^[Yy]$ ]]; then
         echo "钱包密钥已生成，请妥善保存！"
