@@ -20,7 +20,8 @@ function main_menu() {
         echo "2. 备份密钥"
         echo "3. 查看日志"
         echo "4. 重启挖矿"
-        echo "请输入选项 (1-4):"
+        echo "5. 查询余额"
+        echo "请输入选项 (1-5):"
         read -r choice
         case $choice in
             1)
@@ -35,8 +36,11 @@ function main_menu() {
             4)
                 restart_mining
                 ;;
+            5)
+                check_balance
+                ;;
             *)
-                echo "无效选项，请输入 1、2、3 或 4"
+                echo "无效选项，请输入 1、2、3、4 或 5"
                 sleep 2
                 ;;
         esac
@@ -197,7 +201,9 @@ function install_nock() {
     fi
 
     # 清理现有的 miner screen 会话（避免冲突）
-    echo "正在清理现有的 miner screen 会话..."
+    echo "正在清理现有的 miner screen 会话
+
+..."
     screen -ls | grep -q "miner" && screen -X -S miner quit
 
     # 启动 screen 会话运行 nockchain
@@ -296,7 +302,7 @@ function restart_mining() {
     fi
 
     # 进入 nockchain 目录
-    cd "$HOME/nockchain" || { echo "错误：无法进入 nockchain 目录"; exit 1; }
+    cd "$HOME/nockchain" || { echo "错误：无法进入 nockchain 目录"; ಈ exit 1; }
 
     # 检查 .env 文件是否存在并读取 MINING_PUBKEY
     if [ ! -f ".env" ]; then
@@ -354,6 +360,50 @@ function restart_mining() {
     fi
 
     echo "挖矿已重启！"
+    echo "按 Enter 键返回主菜单..."
+    read -r
+}
+
+# 查询余额函数
+function check_balance() {
+    # 检查 nockchain-wallet 是否可用
+    if ! command -v nockchain-wallet >/dev/null 2>&1; then
+        echo "错误：nockchain-wallet 命令不可用，请先运行选项 1 安装部署nock。"
+        echo "按 Enter 键返回主菜单..."
+        read -r
+        return
+    fi
+
+    # 检查 nockchain 目录是否存在
+    if [ ! -d "$HOME/nockchain" ]; then
+        echo "错误：nockchain 目录不存在，请先运行选项 1 安装部署nock。"
+        echo "按 Enter 键返回主菜单..."
+        read -r
+        return
+    fi
+
+    # 检查 socket 文件是否存在
+    SOCKET_PATH="/opt/nockchain/.socket/nockchain_npc.sock"
+    if [ ! -S "$SOCKET_PATH" ]; then
+        echo "错误：socket 文件 $SOCKET_PATH 不存在，请确保 nockchain 节点正在运行（可尝试选项 4 重启挖矿）。"
+        echo "按 Enter 键返回主菜单..."
+        read -r
+        return
+    fi
+
+    # 执行余额查询命令
+    echo "正在查询余额..."
+    nockchain-wallet --nockchain-socket "$SOCKET_PATH" update-balance > balance_output.txt 2>&1
+    if [ $? -eq 0 ]; then
+        echo "余额查询成功！以下是查询结果："
+        echo "----------------------------------------"
+        cat balance_output.txt
+        echo "----------------------------------------"
+    else
+        echo "错误：余额查询失败，请检查 nockchain-wallet 命令或节点状态。"
+        echo "详细信息见 $(pwd)/balance_output.txt"
+    fi
+
     echo "按 Enter 键返回主菜单..."
     read -r
 }
