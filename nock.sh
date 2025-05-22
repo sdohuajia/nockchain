@@ -217,9 +217,9 @@ function install_nock() {
     echo "正在清理现有的 miner screen 会话..."
     screen -ls | grep -q "miner" && screen -X -S miner quit
 
-    # 启动 screen 会话运行 nockchain --mining_pubkey <public_key> --mine
+    # 启动 screen 会话运行 nockchain --mining-pubkey <public_key> --mine
     echo "正在启动 screen 会话 'miner' 并运行 nockchain..."
-    screen -dmS miner bash -c "nockchain --mining_pubkey \"$public_key\" --mine > miner.log 2>&1 || echo 'nockchain 运行失败' >> miner_error.log; exec bash"
+    screen -dmS miner bash -c "nockchain --mining-pubkey \"$public_key\" --mine > miner.log 2>&1 || echo 'nockchain 运行失败' >> miner_error.log; exec bash"
     if [ $? -eq 0 ]; then
         echo "screen 会话 'miner' 已启动，日志输出到 miner.log，可使用 'screen -r miner' 查看。"
     else
