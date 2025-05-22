@@ -93,42 +93,38 @@ function install_nock() {
     echo "正在安装 Nockchain..."
     make install-nockchain || { echo "执行 make install-nockchain 失败，请检查 nockchain 仓库的 Makefile 或依赖"; exit 1; }
 
-    # 直接创建钱包
-    echo "构建完毕，正在自动创建钱包..."
-
-    # 持久化 nockchain 的 target/release 到 PATH
-    echo "正在将 $(pwd)/target/release 添加到 PATH..."
-    if [ -f "$HOME/.bashrc" ]; then
-        if ! grep -q "export PATH=\"\$PATH:$(pwd)/target/release\"" "$HOME/.bashrc"; then
-            echo "export PATH=\"\$PATH:$(pwd)/target/release\"" >> "$HOME/.bashrc"
-            source "$HOME/.bashrc"
-        fi
-    elif [ -f "$HOME/.zshrc" ]; then
-        if ! grep -q "export PATH=\"\$PATH:$(pwd)/target/release\"" "$HOME/.zshrc"; then
-            echo "export PATH=\"\$PATH:$(pwd)/target/release\"" >> "$HOME/.zshrc"
-            source "$HOME/.zshrc"
-        fi
+    # 询问用户是否创建钱包，默认继续（y）
+    echo "构建完毕，是否创建钱包？[Y/n]"
+    read -r create_wallet
+    create_wallet=${create_wallet:-y}  # 默认值为 y
+    if [[ ! "$create_wallet" =~ ^[Yy]$ ]]; then
+    echo "已跳过钱包创建。"
     else
-        echo "未找到 ~/.bashrc 或 ~/.zshrc，请手动添加：export PATH=\"\$PATH:$(pwd)/target/release\""
-    fi
-
+    echo "正在自动创建钱包..."
     # 执行 nockchain-wallet keygen
-    echo "正在生成钱包密钥..."
     if ! command -v nockchain-wallet >/dev/null 2>&1; then
         echo "错误：nockchain-wallet 命令不可用，请检查 target/release 目录或构建过程。"
         exit 1
     fi
     nockchain-wallet keygen > wallet_keys.txt || { echo "错误：nockchain-wallet keygen 执行失败"; exit 1; }
-    echo "钱包密钥已保存到 wallet_keys.txt，请妥善保管！"
-
-    # 从 wallet_keys.txt 中提取 New Public Key
-    echo "正在从 wallet_keys.txt 中提取 New Public Key..."
-    public_key=$(grep -A 1 "New Public Key" wallet_keys.txt | tail -n 1 | tr -d '"')
-    if [ -z "$public_key" ]; then
-        echo "错误：无法从 wallet_keys.txt 中提取 New Public Key，请检查文件内容。"
-        exit 1
+    echo "钱包密钥请妥善保管！"
     fi
-    echo "提取的 New Public Key：$public_key"
+
+    # 持久化 nockchain 的 target/release 到 PATH
+    echo "正在将 $(pwd)/target/release 添加到 PATH..."
+    if [ -f "$HOME/.bashrc" ]; then
+    if ! grep -q "export PATH=\"\$PATH:$(pwd)/target/release\"" "$HOME/.bashrc"; then
+        echo "export PATH=\"\$PATH:$(pwd)/target/release\"" >> "$HOME/.bashrc"
+        source "$HOME/.bashrc"
+    fi
+    elif [ -f "$HOME/.zshrc" ]; then
+    if ! grep -q "export PATH=\"\$PATH:$(pwd)/target/release\"" "$HOME/.zshrc"; then
+        echo "export PATH=\"\$PATH:$(pwd)/target/release\"" >> "$HOME/.zshrc"
+        source "$HOME/.zshrc"
+    fi
+    else
+    echo "未找到 ~/.bashrc 或 ~/.zshrc，请手动添加：export PATH=\"\$PATH:$(pwd)/target/release\""
+    fi
 
     # 检查端口 3005 和 3006 是否被占用
     echo "正在检查端口 3005 和 3006 是否被占用..."
@@ -181,27 +177,31 @@ function install_nock() {
         }
     fi
 
-    # 将端口写入 .env
-    echo "正在将端口写入 .env..."
-    if ! grep -q "^LEADER_PORT=" .env; then
-        echo "LEADER_PORT=$LEADER_PORT" >> .env
-    else
-        sed -i "s|^LEADER_PORT=.*|LEADER_PORT=$LEADER_PORT|" .env
+    # 提示用户输入 MINING_PUBKEY
+    echo "请输入您的 MINING_PUBKEY："
+    read -r public_key
+    if [ -z "$public_key" ]; then
+    echo "错误：未提供 MINING_PUBKEY，请重新运行脚本并输入有效的公钥。"
+    exit 1
     fi
-    if ! grep -q "^FOLLOWER_PORT=" .env; then
-        echo "FOLLOWER_PORT=$FOLLOWER_PORT" >> .env
+
+    # 更新 .env 文件中的 MINING_PUBKEY
+    echo "正在更新 .env 文件中的 MINING_PUBKEY..."
+    if ! grep -q "^MINING_PUBKEY=" .env; then
+    echo "MINING_PUBKEY=$public_key" >> .env
     else
-        sed -i "s|^FOLLOWER_PORT=.*|FOLLOWER_PORT=$FOLLOWER_PORT|" .env
+    sed -i "s|^MINING_PUBKEY=.*|MINING_PUBKEY=$public_key|" .env || {
+        echo "错误：无法更新 .env 文件中的 MINING_PUBKEY。"
+        exit 1
+    }
     fi
 
     # 验证 .env 更新
-    if grep -q "^MINING_PUBKEY=$public_key$" .env && \
-       grep -q "^LEADER_PORT=$LEADER_PORT$" .env && \
-       grep -q "^FOLLOWER_PORT=$FOLLOWER_PORT$" .env; then
-        echo ".env 文件更新成功！"
+    if grep -q "^MINING_PUBKEY=$public_key$" .env; then
+    echo ".env 文件更新成功！"
     else
-        echo "错误：.env 文件更新失败，请检查文件内容。"
-        exit 1
+    echo "错误：.env 文件更新失败，请检查文件内容。"
+    exit 1
     fi
 
     # 验证 Makefile 中的运行目标
