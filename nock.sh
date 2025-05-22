@@ -277,7 +277,7 @@ function view_log() {
     LOG_FILE="$HOME/nockchain/miner.log"
     if [ -f "$LOG_FILE" ]; then
         echo "正在显示日志文件：$LOG_FILE"
-        less "$LOG_FILE"
+        tail -f "$LOG_FILE"
     else
         echo "错误：日志文件 $LOG_FILE 不存在，请确认是否已运行安装部署nock。"
     fi
