@@ -135,7 +135,7 @@ function install_nock() {
     fi
     cp .env_example .env || { echo "错误：无法复制 .env_example 到 .env"; exit 1; }
 
-    # 提示用户输入 MINING_PUBKEY 用于 .env
+    # 提示用户输入 MINING_PUBKEY 用于 .env 和运行 nockchain
     echo "请输入您的 MINING_PUBKEY（用于 .env 文件和运行 nockchain）："
     read -r public_key
     if [ -z "$public_key" ]; then
@@ -283,7 +283,12 @@ function backup_keys() {
 
 # 保存脚本到指定路径
 echo "正在保存脚本到 $SCRIPT_PATH..."
-cp "$0" "$SCRIPT_PATH" && chmod +x "$SCRIPT_PATH" || { echo "错误：无法保存脚本到 $SCRIPT_PATH"; exit 1; }
+if [ "$(realpath "$0")" != "$(realpath "$SCRIPT_PATH")" ]; then
+    cp "$0" "$SCRIPT_PATH" && chmod +x "$SCRIPT_PATH" || { echo "错误：无法保存脚本到 $SCRIPT_PATH"; exit 1; }
+else
+    echo "脚本已位于 $SCRIPT_PATH，跳过复制。"
+    chmod +x "$SCRIPT_PATH" || { echo "错误：无法设置 $SCRIPT_PATH 的执行权限"; exit 1; }
+fi
 
 # 启动主菜单
 main_menu
