@@ -19,7 +19,8 @@ function main_menu() {
         echo "1. 安装部署nock"
         echo "2. 备份密钥"
         echo "3. 查看日志"
-        echo "请输入选项 (1-3):"
+        echo "4. 重启挖矿"
+        echo "请输入选项 (1-4):"
         read -r choice
         case $choice in
             1)
@@ -31,8 +32,11 @@ function main_menu() {
             3)
                 view_log
                 ;;
+            4)
+                restart_mining
+                ;;
             *)
-                echo "无效选项，请输入 1、2 或 3"
+                echo "无效选项，请输入 1、2、3 或 4"
                 sleep 2
                 ;;
         esac
@@ -99,7 +103,6 @@ function install_nock() {
         echo "已跳过钱包创建。"
     else
         echo "正在自动创建钱包..."
-        # 直接执行 nockchain-wallet keygen
         nockchain-wallet keygen
     fi
 
@@ -202,6 +205,18 @@ function install_nock() {
     screen -dmS miner bash -c "nockchain --mining-pubkey \"$public_key\" --mine > miner.log 2>&1 || echo 'nockchain 运行失败' >> miner_error.log; exec bash"
     if [ $? -eq 0 ]; then
         echo "screen 会话 'miner' 已启动，日志输出到 miner.log，可使用 'screen -r miner' 查看。"
+        # 等待片刻以确保日志写入
+        sleep 2
+        # 检查并显示 miner.log 内容
+        if [ -f "miner.log" ]; then
+            echo "以下是 miner.log 的内容："
+            echo "----------------------------------------"
+            cat miner.log
+            echo "----------------------------------------"
+        else
+            echo "警告：miner.log 文件尚未生成，可能 nockchain 尚未开始写入日志。"
+            echo "请稍后使用 'screen -r miner' 或选项 3 查看日志。"
+        fi
     else
         echo "错误：无法启动 screen 会话 'miner'。"
         exit 1
@@ -213,7 +228,7 @@ function install_nock() {
     echo "MINING_PUBKEY 已设置为：$public_key"
     echo "Leader 端口：$LEADER_PORT"
     echo "Follower 端口：$FOLLOWER_PORT"
-    echo "Nockchain 节点运行在 screen 会话 'miner' 中，日志在 miner.log，可使用 'screen -r miner' 查看。"
+    echo "Nockchain 节点运行在 screen 会话 'miner' 中，日志在 miner.log，可使用 'screen -r miner' 或选项 3 查看。"
     if [[ "$create_wallet" =~ ^[Yy]$ ]]; then
         echo "钱包密钥已生成，请妥善保存！"
     fi
@@ -266,6 +281,79 @@ function view_log() {
     else
         echo "错误：日志文件 $LOG_FILE 不存在，请确认是否已运行安装部署nock。"
     fi
+    echo "按 Enter 键返回主菜单..."
+    read -r
+}
+
+# 重启挖矿函数
+function restart_mining() {
+    # 检查 nockchain 目录是否存在
+    if [ ! -d "$HOME/nockchain" ]; then
+        echo "错误：nockchain 目录不存在，请先运行选项 1 安装部署nock。"
+        echo "按 Enter 键返回主菜单..."
+        read -r
+        return
+    fi
+
+    # 进入 nockchain 目录
+    cd "$HOME/nockchain" || { echo "错误：无法进入 nockchain 目录"; exit 1; }
+
+    # 检查 .env 文件是否存在并读取 MINING_PUBKEY
+    if [ ! -f ".env" ]; then
+        echo "错误：.env 文件不存在，请先运行选项 1 安装部署nock。"
+        echo "按 Enter 键返回主菜单..."
+        read -r
+        return
+    fi
+
+    # 从 .env 文件中提取 MINING_PUBKEY
+    public_key=$(grep "^MINING_PUBKEY=" .env | cut -d'=' -f2)
+    if [ -z "$public_key" ]; then
+        echo "错误：未找到 MINING_PUBKEY，请检查 .env 文件。"
+        echo "按 Enter 键返回主菜单..."
+        read -r
+        return
+    fi
+    echo "使用 MINING_PUBKEY：$public_key"
+
+    # 验证 nockchain 命令是否可用
+    echo "正在验证 nockchain 命令..."
+    if ! command -v nockchain >/dev/null 2>&1; then
+        echo "错误：nockchain 命令不可用，请检查安装或 PATH 配置。"
+        echo "按 Enter 键返回主菜单..."
+        read -r
+        return
+    fi
+
+    # 清理现有的 miner screen 会话（避免冲突）
+    echo "正在清理现有的 miner screen 会话..."
+    screen -ls | grep -q "miner" && screen -X -S miner quit
+
+    # 启动 screen 会话运行 nockchain --mining-pubkey <public_key> --mine
+    echo "正在启动 screen 会话 'miner' 并运行 nockchain..."
+    screen -dmS miner bash -c "nockchain --mining-pubkey \"$public_key\" --mine > miner.log 2>&1 || echo 'nockchain 运行失败' >> miner_error.log; exec bash"
+    if [ $? -eq 0 ]; then
+        echo "screen 会话 'miner' 已启动，日志输出到 miner.log，可使用 'screen -r miner' 查看。"
+        # 等待片刻以确保日志写入
+        sleep 2
+        # 检查并显示 miner.log 内容
+        if [ -f "miner.log" ]; then
+            echo "以下是 miner.log 的内容："
+            echo "----------------------------------------"
+            cat miner.log
+            echo "----------------------------------------"
+        else
+            echo "警告：miner.log 文件尚未生成，可能 nockchain 尚未开始写入日志。"
+            echo "请稍后使用 'screen -r miner' 或选项 3 查看日志。"
+        fi
+    else
+        echo "错误：无法启动 screen 会话 'miner'。"
+        echo "按 Enter 键返回主菜单..."
+        read -r
+        return
+    fi
+
+    echo "挖矿已重启！"
     echo "按 Enter 键返回主菜单..."
     read -r
 }
