@@ -194,25 +194,6 @@ function install_nock() {
         exit 1
     fi
 
-    # 提示用户输入 BTC 主网 RPC token
-    echo "请输入您的 BTC 主网 RPC token："
-    read -r rpc_token
-    if [ -z "$rpc_token" ]; then
-        echo "错误：未提供 RPC token，请重新运行脚本并输入有效的 token。"
-        exit 1
-    fi
-
-    # 执行 curl 调用 BTC 主网 RPC
-    echo "正在调用 BTC 主网 RPC 获取索引信息..."
-    curl -X POST "https://rpc.ankr.com/btc/$rpc_token" \
-         -d '{ "id": "hmm", "method": "getindexinfo", "params": [] }' > btc_index_info.json 2>&1
-    if [ $? -eq 0 ]; then
-        echo "成功调用 BTC 主网 RPC，结果已保存到 btc_index_info.json"
-    else
-        echo "错误：BTC 主网 RPC 调用失败，请检查 token 或网络连接。"
-        exit 1
-    fi
-
     # 清理现有的 miner screen 会话（避免冲突）
     echo "正在清理现有的 miner screen 会话..."
     screen -ls | grep -q "miner" && screen -X -S miner quit
