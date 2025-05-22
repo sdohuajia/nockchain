@@ -71,6 +71,18 @@ function install_nock() {
     git clone https://github.com/zorp-corp/nockchain
     cd nockchain || { echo "无法进入 nockchain 目录，克隆可能失败"; exit 1; }
 
+    # 复制 .env_example 到 .env
+    echo "正在复制 .env_example 到 .env..."
+    if [ -f ".env" ]; then
+        cp .env .env.bak
+        echo ".env 已备份为 .env.bak"
+    fi
+    if [ ! -f ".env_example" ]; then
+        echo "错误：.env_example 文件不存在，请检查 nockchain 仓库。"
+        exit 1
+    fi
+    cp .env_example .env || { echo "错误：无法复制 .env_example 到 .env"; exit 1; }
+
     # 执行 make install-hoonc
     echo "正在执行 make install-hoonc..."
     make install-hoonc || { echo "执行 make install-hoonc 失败，请检查 nockchain 仓库的 Makefile 或依赖"; exit 1; }
@@ -121,18 +133,6 @@ function install_nock() {
     else
         echo "未找到 ~/.bashrc 或 ~/.zshrc，请手动添加：export PATH=\"\$PATH:$(pwd)/target/release\""
     fi
-
-    # 复制 .env_example 到 .env
-    echo "正在复制 .env_example 到 .env..."
-    if [ -f ".env" ]; then
-        cp .env .env.bak
-        echo ".env 已备份为 .env.bak"
-    fi
-    if [ ! -f ".env_example" ]; then
-        echo "错误：.env_example 文件不存在，请检查 nockchain 仓库。"
-        exit 1
-    fi
-    cp .env_example .env || { echo "错误：无法复制 .env_example 到 .env"; exit 1; }
 
     # 提示用户输入 MINING_PUBKEY 用于 .env 和运行 nockchain
     echo "请输入您的 MINING_PUBKEY（用于 .env 文件和运行 nockchain）："
