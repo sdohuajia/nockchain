@@ -1,8 +1,5 @@
 #!/bin/bash
 
-# 脚本保存路径
-SCRIPT_PATH="$HOME/nock.sh"
-
 # 确保以 root 权限运行
 if [ "$EUID" -ne 0 ]; then
     echo "请以 root 权限运行此脚本 (sudo)"
@@ -280,15 +277,6 @@ function backup_keys() {
     echo "按 Enter 键返回主菜单..."
     read -r
 }
-
-# 保存脚本到指定路径
-echo "正在保存脚本到 $SCRIPT_PATH..."
-if [ "$(realpath "$0")" != "$(realpath "$SCRIPT_PATH")" ]; then
-    cp "$0" "$SCRIPT_PATH" && chmod +x "$SCRIPT_PATH" || { echo "错误：无法保存脚本到 $SCRIPT_PATH"; exit 1; }
-else
-    echo "脚本已位于 $SCRIPT_PATH，跳过复制。"
-    chmod +x "$SCRIPT_PATH" || { echo "错误：无法设置 $SCRIPT_PATH 的执行权限"; exit 1; }
-fi
 
 # 启动主菜单
 main_menu
