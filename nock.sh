@@ -174,6 +174,27 @@ function install_nock() {
         exit 1
     fi
 
+    # 备份密钥
+    echo "正在执行 nockchain-wallet export-keys..."
+    nockchain-wallet export-keys > keys.export 2>&1
+    if [ $? -eq 0 ]; then
+        echo "密钥备份成功！已保存到 $(pwd)/keys.export"
+    else
+        echo "错误：密钥备份失败，请检查 nockchain-wallet export-keys 命令输出。"
+        echo "详细信息见 $(pwd)/keys.export"
+        exit 1
+    fi
+
+    # 导入密钥
+    echo "正在执行 nockchain-wallet import-keys --input keys.export..."
+    nockchain-wallet import-keys --input keys.export 2>&1
+    if [ $? -eq 0 ]; then
+        echo "密钥导入成功！"
+    else
+        echo "错误：密钥导入失败，请检查 nockchain-wallet import-keys 命令或 keys.export 文件。"
+        exit 1
+    fi
+
     # 检查端口 3005 和 3006 是否被占用
     echo "正在检查端口 3005 和 3006 是否被占用..."
     LEADER_PORT=3005
