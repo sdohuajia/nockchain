@@ -422,21 +422,31 @@ function restart_mining() {
 
 # 查询余额函数
 function check_balance() {
-    # 检查当前目录是否为 ~/nockchain/miner1
-    if [ "$(pwd)" != "$HOME/nockchain/miner1" ]; then
-        echo "错误：请先进入 ~/nockchain/miner1 目录后执行此命令。"
-        echo "你可以通过以下命令切换目录："
-        echo "cd ~/nockchain/miner1"
+    # 保存当前目录，以便完成后返回
+    local ORIGINAL_DIR=$(pwd)
+
+    # 切换到 ~/nockchain/miner1 目录
+    if [ ! -d "$HOME/nockchain/miner1" ]; then
+        echo "错误：目录 ~/nockchain/miner1 不存在，请确认目录是否正确或先运行选项 1 安装部署nock。"
         echo "按 Enter 键返回主菜单..."
         read -r
         return
     fi
+
+    echo "正在切换到 ~/nockchain/miner1 目录..."
+    cd "$HOME/nockchain/miner1" || {
+        echo "错误：无法切换到 ~/nockchain/miner1 目录。"
+        echo "按 Enter 键返回主菜单..."
+        read -r
+        return
+    }
 
     # 检查 nockchain-wallet 是否可用
     if ! command -v nockchain-wallet >/dev/null 2>&1; then
         echo "错误：nockchain-wallet 命令不可用，请先运行选项 1 安装部署nock。"
         echo "按 Enter 键返回主菜单..."
         read -r
+        cd "$ORIGINAL_DIR" # 返回原目录
         return
     fi
 
@@ -445,6 +455,7 @@ function check_balance() {
         echo "错误：nockchain 目录不存在，请先运行选项 1 安装部署nock。"
         echo "按 Enter 键返回主菜单..."
         read -r
+        cd "$ORIGINAL_DIR" # 返回原目录
         return
     fi
 
@@ -454,6 +465,7 @@ function check_balance() {
         echo "错误：socket 文件 $SOCKET_PATH 不存在，请确保 nockchain 节点正在运行（可尝试选项 4 重启挖矿）。"
         echo "按 Enter 键返回主菜单..."
         read -r
+        cd "$ORIGINAL_DIR" # 返回原目录
         return
     fi
 
@@ -469,6 +481,10 @@ function check_balance() {
         echo "错误：余额查询失败，请检查 nockchain-wallet 命令或节点状态。"
         echo "详细信息见 $(pwd)/balance_output.txt"
     fi
+
+    # 返回原目录
+    echo "正在返回原目录 $ORIGINAL_DIR..."
+    cd "$ORIGINAL_DIR" || echo "警告：无法返回原目录 $ORIGINAL_DIR，请手动切换目录。"
 
     echo "按 Enter 键返回主菜单..."
     read -r
