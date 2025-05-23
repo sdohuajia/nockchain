@@ -64,6 +64,10 @@ function install_nock() {
     echo "正在安装 Rust..."
     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 
+    # 设置 vm.overcommit_memory
+    echo "正在设置 vm.overcommit_memory=1..."
+    sudo sysctl -w vm.overcommit_memory=1 || { echo "错误：无法设置 vm.overcommit_memory=1"; exit 1; }
+
     # 配置环境变量（Cargo 路径）
     echo "正在配置 Cargo 环境变量..."
     source $HOME/.cargo/env || { echo "错误：无法 source $HOME/.cargo/env，请检查 Rust 安装"; exit 1; }
