@@ -422,6 +422,16 @@ function restart_mining() {
 
 # 查询余额函数
 function check_balance() {
+    # 检查当前目录是否为 ~/nockchain/miner1
+    if [ "$(pwd)" != "$HOME/nockchain/miner1" ]; then
+        echo "错误：请先进入 ~/nockchain/miner1 目录后执行此命令。"
+        echo "你可以通过以下命令切换目录："
+        echo "cd ~/nockchain/miner1"
+        echo "按 Enter 键返回主菜单..."
+        read -r
+        return
+    fi
+
     # 检查 nockchain-wallet 是否可用
     if ! command -v nockchain-wallet >/dev/null 2>&1; then
         echo "错误：nockchain-wallet 命令不可用，请先运行选项 1 安装部署nock。"
