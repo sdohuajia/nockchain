@@ -460,7 +460,7 @@ function check_balance() {
     fi
 
     # 检查 socket 文件是否存在
-    SOCKET_PATH="/opt/nockchain/.socket/nockchain_npc.sock"
+    SOCKET_PATH=".socket/nockchain_npc.sock"
     if [ ! -S "$SOCKET_PATH" ]; then
         echo "错误：socket 文件 $SOCKET_PATH 不存在，请确保 nockchain 节点正在运行（可尝试选项 4 重启挖矿）。"
         echo "按 Enter 键返回主菜单..."
@@ -471,7 +471,7 @@ function check_balance() {
 
     # 执行余额查询命令
     echo "正在查询余额..."
-    nockchain-wallet --nockchain-socket "$SOCKET_PATH" update-balance > balance_output.txt 2>&1
+    nockchain-wallet --nockchain-socket "$SOCKET_PATH" list-notes > balance_output.txt 2>&1
     if [ $? -eq 0 ]; then
         echo "余额查询成功！以下是查询结果："
         echo "----------------------------------------"
