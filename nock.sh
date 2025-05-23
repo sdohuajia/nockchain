@@ -90,6 +90,7 @@ function install_nock() {
     # 执行 make install-hoonc
     echo "正在执行 make install-hoonc..."
     make install-hoonc || { echo "执行 make install-hoonc 失败，请检查 nockchain 仓库的 Makefile 或依赖"; exit 1; }
+    export PATH="$HOME/.cargo/bin:$PATH"
 
     # 验证 hoonc 安装
     echo "正在验证 hoonc 安装..."
@@ -102,14 +103,17 @@ function install_nock() {
     # 安装节点二进制文件
     echo "正在安装节点二进制文件..."
     make build || { echo "执行 make build 失败，请检查 nockchain 仓库的 Makefile 或依赖"; exit 1; }
+    export PATH="$HOME/.cargo/bin:$PATH"
 
     # 安装钱包二进制文件
     echo "正在安装钱包二进制文件..."
     make install-nockchain-wallet || { echo "执行 make install-nockchain-wallet 失败，请检查 nockchain 仓库的 Makefile 或依赖"; exit 1; }
+    export PATH="$HOME/.cargo/bin:$PATH"
 
     # 安装 Nockchain
     echo "正在安装 Nockchain..."
     make install-nockchain || { echo "执行 make install-nockchain 失败，请检查 nockchain 仓库的 Makefile 或依赖"; exit 1; }
+    export PATH="$HOME/.cargo/bin:$PATH"
 
     # 询问用户是否创建钱包，默认继续（y）
     echo "构建完毕，是否创建钱包？[Y/n]"
@@ -200,31 +204,34 @@ function install_nock() {
         exit 1
     fi
 
-    # 清理现有的 miner screen 会话（避免冲突）
-    echo "正在清理现有的 miner screen 会话
-
-..."
-    screen -ls | grep -q "miner" && screen -X -S miner quit
+    # 清理现有的 miner1 screen 会话（避免冲突）
+    echo "正在清理现有的 miner1 screen 会话..."
+    screen -ls | grep -q "miner1" && screen -X -S miner1 quit
 
     # 启动 screen 会话运行 nockchain
-    echo "正在启动 screen 会话 'miner' 并运行 nockchain..."
-    screen -dmS miner bash -c "nockchain --mining-pubkey \"$public_key\" --mine > miner.log 2>&1 || echo 'nockchain 运行失败' >> miner_error.log; exec bash"
+    echo "正在创建 miner1 目录并进入..."
+    mkdir -p miner1 && cd miner1 || { echo "错误：无法创建或进入 miner1 目录"; exit 1; }
+
+    echo "正在启动 screen 会话 'miner1' 并运行 nockchain..."
+    screen -dmS miner1 bash -c "RUST_LOG=info,nockchain=info,nockchain_libp2p_io=info,libp2p=info,libp2p_quic=info \
+    MINIMAL_LOG_FORMAT=true \
+    nockchain --mining-pubkey \"$public_key\" --mine > miner1.log 2>&1 || echo 'nockchain 运行失败' >> miner_error.log; exec bash"
     if [ $? -eq 0 ]; then
-        echo "screen 会话 'miner' 已启动，日志输出到 miner.log，可使用 'screen -r miner' 查看。"
+        echo "screen 会话 'miner1' 已启动，日志输出到 miner1.log，可使用 'screen -r miner1' 查看。"
         # 等待片刻以确保日志写入
         sleep 2
-        # 检查并显示 miner.log 内容
-        if [ -f "miner.log" ]; then
-            echo "以下是 miner.log 的内容："
+        # 检查并显示 miner1.log 内容
+        if [ -f "miner1.log" ]; then
+            echo "以下是 miner1.log 的内容："
             echo "----------------------------------------"
-            cat miner.log
+            cat miner1.log
             echo "----------------------------------------"
         else
-            echo "警告：miner.log 文件尚未生成，可能 nockchain 尚未开始写入日志。"
-            echo "请稍后使用 'screen -r miner' 或选项 3 查看日志。"
+            echo "警告：miner1.log 文件尚未生成，可能 nockchain 尚未开始写入日志。"
+            echo "请稍后使用 'screen -r miner1' 或选项 3 查看日志。"
         fi
     else
-        echo "错误：无法启动 screen 会话 'miner'。"
+        echo "错误：无法启动 screen 会话 'miner1'。"
         exit 1
     fi
 
@@ -234,7 +241,7 @@ function install_nock() {
     echo "MINING_PUBKEY 已设置为：$public_key"
     echo "Leader 端口：$LEADER_PORT"
     echo "Follower 端口：$FOLLOWER_PORT"
-    echo "Nockchain 节点运行在 screen 会话 'miner' 中，日志在 miner.log，可使用 'screen -r miner' 或选项 3 查看。"
+    echo "Nockchain 节点运行在 screen 会话 'miner1' 中，日志在 miner1.log，可使用 'screen -r miner1' 或选项 3 查看。"
     if [[ "$create_wallet" =~ ^[Yy]$ ]]; then
         echo "钱包密钥已生成，请妥善保存！"
     fi
@@ -280,7 +287,7 @@ function backup_keys() {
 
 # 查看日志函数
 function view_log() {
-    LOG_FILE="$HOME/nockchain/miner.log"
+    LOG_FILE="$HOME/nockchain/miner1/miner1.log"
     if [ -f "$LOG_FILE" ]; then
         echo "正在显示日志文件：$LOG_FILE"
         tail -f "$LOG_FILE"
@@ -301,11 +308,11 @@ function restart_mining() {
         return
     fi
 
-    # 进入 nockchain 目录
-    cd "$HOME/nockchain" || { echo "错误：无法进入 nockchain 目录"; ಈ exit 1; }
+    # 进入 nockchain/miner1 目录
+    cd "$HOME/nockchain/miner1" || { echo "错误：无法进入 nockchain/miner1 目录"; exit 1; }
 
     # 检查 .env 文件是否存在并读取 MINING_PUBKEY
-    if [ ! -f ".env" ]; then
+    if [ ! -f "../.env" ]; then
         echo "错误：.env 文件不存在，请先运行选项 1 安装部署nock。"
         echo "按 Enter 键返回主菜单..."
         read -r
@@ -313,7 +320,7 @@ function restart_mining() {
     fi
 
     # 从 .env 文件中提取 MINING_PUBKEY
-    public_key=$(grep "^MINING_PUBKEY=" .env | cut -d'=' -f2)
+    public_key=$(grep "^MINING_PUBKEY=" ../.env | cut -d'=' -f2)
     if [ -z "$public_key" ]; then
         echo "错误：未找到 MINING_PUBKEY，请检查 .env 文件。"
         echo "按 Enter 键返回主菜单..."
@@ -331,29 +338,40 @@ function restart_mining() {
         return
     fi
 
-    # 清理现有的 miner screen 会话（避免冲突）
-    echo "正在清理现有的 miner screen 会话..."
-    screen -ls | grep -q "miner" && screen -X -S miner quit
+    # 清理现有的 miner1 screen 会话（避免冲突）
+    echo "正在清理现有的 miner1 screen 会话..."
+    screen -ls | grep -q "miner1" && screen -X -S miner1 quit
+
+    # 清理 .data.nockchain 和 .socket/nockchain_npc.sock
+    echo "正在清理 .data.nockchain 和 .socket/nockchain_npc.sock..."
+    rm -rf ./.data.nockchain .socket/nockchain_npc.sock || {
+        echo "错误：无法删除 .data.nockchain 或 .socket/nockchain_npc.sock，可能文件正在使用。"
+        echo "按 Enter 键返回主菜单..."
+        read -r
+        return
+    }
 
     # 启动 screen 会话运行 nockchain
-    echo "正在启动 screen 会话 'miner' 并运行 nockchain..."
-    screen -dmS miner bash -c "nockchain --mining-pubkey \"$public_key\" --mine > miner.log 2>&1 || echo 'nockchain 运行失败' >> miner_error.log; exec bash"
+    echo "正在启动 screen 会话 'miner1' 并运行 nockchain..."
+    screen -dmS miner1 bash -c "RUST_LOG=info,nockchain=info,nockchain_libp2p_io=info,libp2p=info,libp2p_quic=info \
+    MINIMAL_LOG_FORMAT=true \
+    nockchain --mining-pubkey \"$public_key\" --mine > miner1.log 2>&1 || echo 'nockchain 运行失败' >> miner_error.log; exec bash"
     if [ $? -eq 0 ]; then
-        echo "screen 会话 'miner' 已启动，日志输出到 miner.log，可使用 'screen -r miner' 查看。"
+        echo "screen 会话 'miner1' 已启动，日志输出到 miner1.log，可使用 'screen -r miner1' 查看。"
         # 等待片刻以确保日志写入
         sleep 2
-        # 检查并显示 miner.log 内容
-        if [ -f "miner.log" ]; then
-            echo "以下是 miner.log 的内容："
+        # 检查并显示 miner1.log 内容
+        if [ -f "miner1.log" ]; then
+            echo "以下是 miner1.log 的内容："
             echo "----------------------------------------"
-            cat miner.log
+            cat miner1.log
             echo "----------------------------------------"
         else
-            echo "警告：miner.log 文件尚未生成，可能 nockchain 尚未开始写入日志。"
-            echo "请稍后使用 'screen -r miner' 或选项 3 查看日志。"
+            echo "警告：miner1.log 文件尚未生成，可能 nockchain 尚未开始写入日志。"
+            echo "请稍后使用 'screen -r miner1' 或选项 3 查看日志。"
         fi
     else
-        echo "错误：无法启动 screen 会话 'miner'。"
+        echo "错误：无法启动 screen 会话 'miner1'。"
         echo "按 Enter 键返回主菜单..."
         read -r
         return
